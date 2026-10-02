@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tra cứu & tải video TikTok</title>
+<meta name="description" content="Dán link video TikTok để xem lượt xem, tim, bình luận và tải video về máy.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f4;--card:#fff;--ink:#12171d;--mute:#5d6875;--line:#d9dee4;--red:#fe2c55;--cyan:#25f4ee}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1216;--card:#171d23;--ink:#eef2f6;--mute:#93a0ae;--line:#28313a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 "Be Vietnam Pro",system-ui,sans-serif}
+main{max-width:720px;margin:0 auto;padding:40px 18px 64px}
+h1{font-size:clamp(28px,6vw,44px);line-height:1.08;font-weight:800;letter-spacing:-.02em;margin:0 0 10px}
+.lead{color:var(--mute);margin:0 0 26px;max-width:46ch}
+.bar{display:flex;gap:8px;flex-wrap:wrap}
+input{flex:1 1 260px;min-width:0;padding:15px 16px;font:inherit;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:12px}
+input:focus{outline:none;border-color:var(--ink)}
+button,.btn{font:inherit;font-weight:700;border:0;border-radius:12px;padding:15px 20px;cursor:pointer;text-decoration:none;display:inline-block;text-align:center}
+#go{background:var(--red);color:#fff;box-shadow:3px 3px 0 var(--cyan)}
+#go:disabled{opacity:.6;cursor:wait}
+#paste{background:transparent;color:var(--ink);border:2px solid var(--line)}
+button:focus-visible,.btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+#msg{min-height:24px;margin:14px 0 0;color:var(--red);font-weight:500}
+#out{display:none;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.grid{display:grid;grid-template-columns:minmax(0,240px) 1fr}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+video{display:block;width:100%;max-height:70vh;background:#000;aspect-ratio:9/16;object-fit:contain}
+.info{padding:18px}
+.who{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.who img{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--line)}
+.who b{display:block;line-height:1.2}.who span{color:var(--mute);font-size:14px}
+.title{margin:0 0 16px;overflow-wrap:anywhere}
+dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:0 0 18px}
+dl div{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+dt{color:var(--mute);font-size:13px}dd{margin:0;font-weight:800;font-size:22px}
+.dl{display:flex;gap:8px;flex-wrap:wrap}
+.btn.main{background:var(--ink);color:var(--bg)}
+.btn.alt{border:2px solid var(--line);color:var(--ink);background:transparent;padding:13px 18px}
+.note{color:var(--mute);font-size:13px;margin-top:28px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Xem thông số & tải video TikTok</h1>
+  <p class="lead">Dán link video để xem lượt xem, tim, bình luận, chia sẻ và tải về máy.</p>
+  <div class="bar">
+    <input id="url" type="url" inputmode="url" placeholder="https://www.tiktok.com/@tên/video/…" aria-label="Link video TikTok" autocomplete="off">
+    <button id="paste" type="button">Dán</button>
+    <button id="go" type="button">Tra cứu</button>
+  </div>
+  <p id="msg" role="alert"></p>
+
+  <section id="out">
+    <div class="grid">
+      <video id="vid" controls playsinline preload="metadata"></video>
+      <div class="info">
+        <div class="who"><img id="av" alt=""><div><b id="an"></b><span id="ai"></span></div></div>
+        <p class="title" id="ti"></p>
+        <dl>
+          <div><dt>Lượt xem</dt><dd id="s-views"></dd></div>
+          <div><dt>Tim</dt><dd id="s-likes"></dd></div>
+          <div><dt>Bình luận</dt><dd id="s-comments"></dd></div>
+          <div><dt>Chia sẻ</dt><dd id="s-shares"></dd></div>
+          <div><dt>Lưu</dt><dd id="s-saves"></dd></div>
+          <div><dt>Thời lượng</dt><dd id="s-dur"></dd></div>
+        </dl>
+        <div class="dl">
+          <a class="btn main" id="d-hd">Tải video HD</a>
+          <a class="btn alt" id="d-sd">Tải video thường</a>
+          <a class="btn alt" id="d-mp3">Tải nhạc (MP3)</a>
+        </div>
+      </div>
+    </div>
+  </section>
+  <p class="note">Chỉ tải video bạn có quyền sử dụng. Video thuộc bản quyền của người đăng.</p>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const nf = new Intl.NumberFormat('vi-VN');
+const fmt = (n) => nf.format(n ?? 0);
+const dlUrl = (u, name, type) => '/api/download?u=' + encodeURIComponent(u) + '&name=' + encodeURIComponent(name) + (type ? '&type=' + type : '');
+
+async function lookup() {
+  const url = $('url').value.trim();
+  $('msg').textContent = '';
+  if (!url) { $('msg').textContent = 'Hãy dán link video TikTok.'; return; }
+  $('go').disabled = true; $('go').textContent = 'Đang tra cứu…';
+  try {
+    const r = await fetch('/api/info?url=' + encodeURIComponent(url));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Có lỗi xảy ra.');
+    show(d);
+  } catch (e) {
+    $('out').style.display = 'none';
+    $('msg').textContent = e.message;
+  } finally {
+    $('go').disabled = false; $('go').textContent = 'Tra cứu';
+  }
+}
+
+function show(d) {
+  const v = $('vid'); v.poster = d.cover || ''; v.src = d.play;
+  $('av').src = d.author.avatar || ''; $('an').textContent = d.author.name || '';
+  $('ai').textContent = d.author.id ? '@' + d.author.id : '';
+  $('ti').textContent = d.title;
+  $('s-views').textContent = fmt(d.stats.views);
+  $('s-likes').textContent = fmt(d.stats.likes);
+  $('s-comments').textContent = fmt(d.stats.comments);
+  $('s-shares').textContent = fmt(d.stats.shares);
+  $('s-saves').textContent = fmt(d.stats.saves);
+  const m = Math.floor(d.duration / 60), s = String(d.duration % 60).padStart(2, '0');
+  $('s-dur').textContent = m + ':' + s;
+  const name = 'tiktok_' + (d.author.id || 'video') + '_' + d.id;
+  $('d-hd').href = dlUrl(d.hdplay || d.play, name + '_hd');
+  $('d-sd').href = dlUrl(d.play, name);
+  $('d-mp3').href = dlUrl(d.music, name, 'mp3');
+  $('d-mp3').style.display = d.music ? '' : 'none';
+  $('out').style.display = 'block';
+  $('out').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+$('go').onclick = lookup;
+$('url').addEventListener('keydown', (e) => { if (e.key === 'Enter') lookup(); });
+$('paste').onclick = async () => {
+  try { $('url').value = await navigator.clipboard.readText(); lookup(); }
+  catch { $('msg').textContent = 'Không đọc được clipboard. Hãy dán thủ công vào ô.'; }
+};
+</script>
+</body>
+</html>
